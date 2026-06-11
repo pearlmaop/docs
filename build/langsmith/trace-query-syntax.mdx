@@ -11,7 +11,7 @@ Using the method in the SDK or endpoint in the API, you can filter runs to analy
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `project_id` / `project_name` | The project(s) to fetch runs from - can be a single project or a list of projects.                                                                                                                                             |
 | `trace_id`                    | Fetch runs that are part of a specific trace.                                                                                                                                                                                  |
-| `run_type`                    | The type of run to get, such as `llm`, `chain`, `tool`, `retriever`, etc.                                                                                                                                                      |
+| `run_type`                    | The [type of run](/langsmith/run-data-format#run-types) to get, for example, `llm`, `chain`, `tool`, `retriever`.                                                                                                                              |
 | `dataset_name` / `dataset_id` | Fetch runs that are associated with an example row in the specified dataset. This is useful for comparing prompts or models over a given dataset.                                                                              |
 | `reference_example_id`        | Fetch runs that are associated with a specific example row. This is useful for comparing prompts or models on a given input.                                                                                                   |
 | `parent_run_id`               | Fetch runs that are children of a given run. This is useful for fetching runs grouped together using the context manager or for fetching an agent trajectory.                                                                  |
@@ -21,8 +21,12 @@ Using the method in the SDK or endpoint in the API, you can filter runs to analy
 | `trace_filter`                | Filter to apply to the ROOT run in the trace tree. This is meant to be used in conjunction with the regular `filter` parameter to let you filter runs by attributes of the root run within a trace.                            |
 | `tree_filter`                 | Filter to apply to OTHER runs in the trace tree, including sibling and child runs. This is meant to be used in conjunction with the regular `filter` parameter to let you filter runs by attributes of any run within a trace. |
 | `is_root`                     | Only return root runs.                                                                                                                                                                                                         |
-| `select`                      | Select the fields to return in the response. By default, all fields are returned.                                                                                                                                              |
+| `select`                      | Select the fields to return in the response. By default, all fields are returned. See [run data format](/langsmith/run-data-format) for available fields.                                                                                                                                              |
 | `query` (_experimental_)      | Natural language query, which translates your query into a filter statement.                                                                                                                                                   |
+
+<Note>
+**Performance tip**: Passing the `select` parameter and excluding `inputs` and `outputs` from the list can significantly improve query performance and reduce response sizes, especially for large runs.
+</Note>
 
 ## Filter query language
 
@@ -45,9 +49,11 @@ These can be applied on fields of the run object, such as its `id`, `name`, `run
 
 ---
 
-<Callout icon="pen-to-square" iconType="regular">
-    [Edit the source of this page on GitHub.](https://github.com/langchain-ai/docs/edit/main/src/langsmith/trace-query-syntax.mdx)
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
 </Callout>
-<Tip icon="terminal" iconType="regular">
-    [Connect these docs programmatically](/use-these-docs) to Claude, VSCode, and more via MCP for    real-time answers.
-</Tip>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith/trace-query-syntax.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

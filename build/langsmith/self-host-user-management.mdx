@@ -4,7 +4,7 @@ sidebarTitle: Customize user management
 ---
 
 <Note>
-This guide assumes you have read the [admin guide](/langsmith/administration-overview) and [organization setup guide](/langsmith/set-up-a-workspace#set-up-an-organization).
+This guide assumes you have read the [admin guide](/langsmith/administration-overview) and [organization setup guide](/langsmith/set-up-hierarchy#set-up-an-organization).
 </Note>
 
 LangSmith offers additional customization features for user management using feature flags.
@@ -38,7 +38,7 @@ WORKSPACE_SCOPE_ORG_INVITES_ENABLED="true"
 
 </CodeGroup>
 
-### SSO New Member Login Flow
+### SSO new member login flow
 
 As of helm **v0.11.10**, self-hosted deployments using OAuth SSO will no longer need to manually add members in LangSmith settings for them to join. Deployments will have a <b>default</b> organization, to which new users will automatically be added upon their first login to LangSmith.
 
@@ -54,7 +54,17 @@ To change your default organization, use **Set Default Organization** in the org
 </Note>
 
 
-### Disabling Organization Creating
+### SSO Groups Sync
+
+<Note>
+SSO Groups Sync on self-hosted requires LangSmith chart version **0.15.0-rc.3** (application version **0.15.2rc1**) or later.
+</Note>
+
+[SSO Groups Sync](/langsmith/user-management#sso-groups-sync-alternative) reads group memberships from the OIDC ID token and assigns org and workspace roles using the [SCIM naming convention](/langsmith/user-management#group-naming-convention). It is a simpler alternative to [SCIM](/langsmith/user-management#set-up-scim-for-your-organization) for self-hosted organizations whose IdP can include groups in the OIDC token but cannot easily run SCIM provisioning.
+
+For IdP-side configuration (claim, scope) refer to the [SSO Groups Sync section in the OIDC SSO setup guide](/langsmith/self-host-sso#sso-groups-sync). For settings reference and behavior, see the [main SSO Groups Sync documentation](/langsmith/user-management#sso-groups-sync-alternative).
+
+### Disabling organization creating
 
 By default, any user can create an organization in LangSmith. For self-hosted customers, an admin may want to restrict this ability after setting up initial organizations. This feature flag allows an admin to disable the ability for users to create new organizations.
 
@@ -78,7 +88,7 @@ FF_ORG_CREATION_DISABLED="true"
 
 </CodeGroup>
 
-### Disabling Personal Organizations
+### Disabling personal organizations
 
 By default, any user who logs in to LangSmith will have a personal organization created for them. For self-hosted customers, an admin may want to restrict this ability. This feature flag allows an admin to disable the ability for users to create personal organizations.
 
@@ -97,16 +107,45 @@ config:
 
 ```bash Docker
 # In your .env file
-PERSONAL_ORGS_DISABLED="true"
+FF_PERSONAL_ORGS_DISABLED="true"
+```
+
+</CodeGroup>
+
+### Disabling personal access token creation
+
+<Note>
+This feature requires Helm chart version 0.13.12 (application version 0.13.12) or later.
+</Note>
+
+By default, users can create Personal Access Tokens (PATs) in any organization. For self-hosted customers, an admin may want to globally disable PAT creation across all organizations. This environment variable allows an admin to prevent users from creating new PATs in any organization on the instance.
+
+To disable PAT creation for a single organization instead, see the [per-organization API option](/langsmith/manage-organization-by-api#security-settings).
+
+#### Configuration
+
+<CodeGroup>
+
+```yaml Helm
+commonEnv:
+  - name: PAT_CREATION_DISABLED
+    value: "true"
+```
+
+```bash Docker
+# In your .env file
+PAT_CREATION_DISABLED="true"
 ```
 
 </CodeGroup>
 
 ---
 
-<Callout icon="pen-to-square" iconType="regular">
-    [Edit the source of this page on GitHub.](https://github.com/langchain-ai/docs/edit/main/src/langsmith/self-host-user-management.mdx)
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
 </Callout>
-<Tip icon="terminal" iconType="regular">
-    [Connect these docs programmatically](/use-these-docs) to Claude, VSCode, and more via MCP for    real-time answers.
-</Tip>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith/self-host-user-management.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

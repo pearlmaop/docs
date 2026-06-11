@@ -19,7 +19,7 @@ You may upgrade a [basic auth](/langsmith/self-host-basic-auth) installation to 
 LangSmith does not support moving from SSO to basic auth mode in self-hosted at the moment. We also do not support moving from OAuth Mode with client secret to OAuth mode without a client secret and vice versa. Finally, we do not support having both basic auth and OAuth at the same time. Ensure you disable the basic auth configuration when enabling OAuth.
 </Warning>
 
-## With Client Secret (Recommended)
+## With client secret (Recommended)
 
 By default, LangSmith Self-Hosted supports the `Authorization Code` flow with `Client Secret`. In this version of the flow, your client secret is stored security in LangSmith (not on the frontend) and used for authentication and establishing auth sessions.
 
@@ -37,6 +37,7 @@ LangSmith SSO is only supported over `https`.
 ### Configuration
 
 * You will need to set the callback URL in your IdP to `https://<host>/api/v1/oauth/custom-oidc/callback`, where `host` is the domain or IP you have provisioned for your LangSmith instance. This is where your IdP will redirect the user after they have authenticated.
+* To terminate the IdP session on logout (so users must re-authenticate), register your LangSmith URL (e.g., `https://<host>`) as a **post-logout redirect URI** (sometimes called "Sign-out redirect URI") in your IdP, then set `OAUTH_IDP_LOGOUT_ENABLED=true` in your environment (via `commonEnv` in Helm or your `.env` file in Docker Compose).
 * You will need to provide the `oauthClientId`, `oauthClientSecret`, `hostname`, and `oauthIssuerUrl` in your `values.yaml` file. This is where you will configure your LangSmith instance.
 * If you have **not** already configured Oauth with client secret or if you only have personal orgs, you must provide an email address to assign as the initial org admin for the newly provisioned SSO org. If you are upgrading from basic auth, your existing org will be reused instead.
 
@@ -79,7 +80,7 @@ All of the environment variables in this section are for the `platform-backend` 
 * `OAUTH_SESSION_MAX_SEC` (default 1 day) can be overridden to a maximum of one week (`604800`)
 * For identity provider setups that don't support refresh tokens, setting `OAUTH_OVERRIDE_TOKEN_EXPIRY="true"` will take `OAUTH_SESSION_MAX_SEC` as the session length, ignoring the identity token expiration
 
-### Override Sub Claim
+### Override sub claim
 
 In some scenarios, it may be necessary to override which claim is used as the `sub` claim from your identity provider.
 For example, in SCIM, the resolved `sub` claim and SCIM `externalId` must match in order for login to succeed.
@@ -98,7 +99,57 @@ If unset, the default value for this configuration uses the `oid` claim when Azu
 ISSUER_SUB_CLAIM_OVERRIDES='{"https://login.microsoftonline.com/": "oid", "https://sts.windows.net/": "oid", "https://login.microsoftonline.us/": "oid", "https://login.partner.microsoftonline.cn/": "oid"}'
 ```
 
-### Google Workspace IdP setup
+### SSO Groups Sync
+
+<Note>
+SSO Groups Sync on self-hosted requires LangSmith chart version **0.15.0-rc.3** (application version **0.15.2rc1**) or later.
+</Note>
+
+[SSO Groups Sync](/langsmith/user-management#sso-groups-sync-alternative) lets LangSmith assign org and workspace roles from a group membership claim on the OIDC token, as a simpler alternative to [SCIM](/langsmith/user-management#set-up-scim-for-your-organization). On self-hosted, you must configure the IdP to include groups in the OIDC ID token before LangSmith can read them.
+
+**IdP-side configuration (varies by provider):**
+
+1. Configure your IdP application to emit a group membership claim in the OIDC ID token. The source attribute and the resulting claim name vary by IdP. Common examples include `groups`, `roles`, or a custom claim name. LangSmith does not dictate the source attribute.
+2. Depending on your IdP, you may need to add an additional scope (commonly `groups`) to `oauthScopes` to receive the claim. Check your IdP's documentation for the required scope and any additional configuration needed to include group memberships in the token.
+3. Group names must follow the [SCIM naming convention](/langsmith/user-management#group-naming-convention) (e.g., `LS:Organization Admin`, `LS:Organization User:prod:Editor`). The separator is shared with SCIM via [`scim_group_name_separator`](/langsmith/user-management#configure-custom-separator).
+
+**Helm configuration:**
+
+If your IdP requires an additional OIDC scope to include groups in the token (commonly `groups`), add it to `oauthScopes`:
+
+<CodeGroup>
+
+```yaml Helm
+config:
+  authType: mixed
+  hostname: https://langsmith.example.com
+  oauth:
+    enabled: true
+    oauthClientId: <YOUR CLIENT ID>
+    oauthClientSecret: <YOUR CLIENT SECRET>
+    oauthIssuerUrl: <YOUR DISCOVERY URL>
+    oauthScopes: "email,profile,openid,groups"
+```
+
+```bash Docker
+# In your .env file
+AUTH_TYPE=mixed
+LANGSMITH_URL=https://langsmith.example.com
+OAUTH_CLIENT_ID=your-client-id
+OAUTH_CLIENT_SECRET=your-client-secret
+OAUTH_ISSUER_URL=https://your-issuer-url
+OAUTH_SCOPES=email,profile,openid,groups
+```
+
+</CodeGroup>
+
+The exact scope name (`groups`, `roles`, etc.) depends on your IdP. Check your IdP's OIDC documentation.
+
+**LangSmith-side configuration:**
+
+Per-provider SSO Groups Sync settings are stored on the SSO provider record and toggled via the [LangSmith UI](https://smith.langchain.com?utm_source=docs&utm_medium=cta&utm_campaign=langsmith-signup&utm_content=langsmith-self-host-sso) or [API](/langsmith/reference) (not via Helm values). Once your IdP emits the groups claim, configure SSO Groups Sync from the UI in **Settings** → **Members and roles** → **SSO Configuration** → **SSO Groups Sync**. Or, via the API as described in the [main SSO Groups Sync documentation](/langsmith/user-management#sso-groups-sync-alternative). The claim name configured in the **Groups claim field** must match the claim emitted by your IdP.
+
+### Google workspace IdP setup
 
 You can use Google Workspace as a single sign-on (SSO) provider using [OAuth2.0 and OIDC](https://developers.google.com/identity/openid-connect/openid-connect) without PKCE.
 
@@ -143,15 +194,18 @@ You must have administrator-level access to your organization's Google Cloud Pla
 
 * IdP-initiated SSO
 * SP-initiated SSO
+* Just-In-Time provisioning (see [Manage user access in SSO organizations](/langsmith/jit-invite-sso))
 
 #### Configuration steps
 
 For additional information, see Okta's [documentation](https://help.okta.com/en-us/content/topics/apps/apps_app_integration_wizard_oidc.htm).
-If you have any questions or issues, please reach out to [support@langchain.dev](mailto:support@langchain.dev).
+If you have any questions or issues, please contact support via [support.langchain.com](https://support.langchain.com).
 
 <div id="via-okta-integration-network">
     <b>Via Okta Integration Network (recommended)</b>
 </div>
+
+<Info>For details on SCIM setup, refer to [Set up SCIM for your organization](/langsmith/user-management#set-up-scim-for-your-organization).</Info>
 
 <Note>
 This method of configuration is required in order to use SCIM with Okta.
@@ -205,6 +259,8 @@ OAUTH_SCOPES=email,profile,openid
 
 </CodeGroup>
 
+<Info>For details on SCIM setup, refer to [Set up SCIM for your organization](/langsmith/user-management#set-up-scim-for-your-organization).</Info>
+
 <div id="via-okta-custom-app-integration">
     <b>Via Custom App Integration</b>
 </div>
@@ -219,7 +275,7 @@ SCIM is not compatible with this method of configuration. Refer to [**Via Okta I
 1. Enter an `App integration name` (e.g., `LangSmith`).
 1. Recommended: Check **Core grants > Refresh Token** (see [session length controls](#session-length-controls)).
 1. In **Sign-in redirect URIs** put the domain of your LangSmith instance followed by `/api/v1/oauth/custom-oidc/callback`, e.g., `https://langsmith.yourdomain.com/api/v1/oauth/custom-oidc/callback`. If your installation is configured with a subdomain / path prefix, include that in the URL, e.g., `https://langsmith.yourdomain.com/prefix/api/v1/oauth/custom-oidc/callback`.
-1. Remove the default URI under **Sign-out redirect URIs**.
+1. Under **Sign-out redirect URIs**, set the value to your LangSmith URL, e.g., `https://langsmith.yourdomain.com`. This ensures the IdP session is terminated when users log out of LangSmith.
 1. Under **Trusted Origins > Base URIs** add your langsmith URL with the protocol, e.g., `https://langsmith.yourdomain.com`.
 1. Select your desired option under **Assignments > Controlled access**:
     * Allow everyone in your organization to access.
@@ -263,7 +319,7 @@ OAUTH_SCOPES=email,profile,openid
 
 Users can sign in using the **Login via SSO** button on the LangSmith homepage.
 
-## Without Client Secret (PKCE) (Deprecated)
+## Without client secret (PKCE) (Deprecated)
 
 We recommend running with a `Client Secret` if possible (previously we didn't support this). However, if your IdP does not support this, you can use the `Authorization Code with PKCE` flow.
 
@@ -300,9 +356,11 @@ OAUTH_ISSUER_URL=https://your-issuer-url
 
 ---
 
-<Callout icon="pen-to-square" iconType="regular">
-    [Edit the source of this page on GitHub.](https://github.com/langchain-ai/docs/edit/main/src/langsmith/self-host-sso.mdx)
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
 </Callout>
-<Tip icon="terminal" iconType="regular">
-    [Connect these docs programmatically](/use-these-docs) to Claude, VSCode, and more via MCP for    real-time answers.
-</Tip>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith/self-host-sso.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>
